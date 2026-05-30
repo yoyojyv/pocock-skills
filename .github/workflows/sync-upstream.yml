@@ -1,0 +1,43 @@
+name: Sync upstream
+
+# Keeps this fork in sync with mattpocock/skills.
+# The fork is a near-clean mirror; the only fork-unique file is this workflow
+# (under .github/workflows/), a path upstream never touches — so merging
+# upstream/main never conflicts. We use `git merge` (not `gh repo sync`,
+# which is fast-forward only and would fail once the fork is ahead).
+
+on:
+  schedule:
+    - cron: '0 18 * * 0'   # Every Sunday 18:00 UTC (Mon 03:00 KST)
+  workflow_dispatch:        # Allow manual runs from the Actions tab / gh CLI
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Merge upstream into fork
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/mattpocock/skills.git
+          git fetch upstream
+          before="$(git rev-parse HEAD)"
+          git merge --no-edit upstream/main
+          after="$(git rev-parse HEAD)"
+          if [ "$before" = "$after" ]; then
+            echo "Already up to date with upstream/main."
+          else
+            git push
+            echo "Merged upstream/main and pushed."
+          fi
